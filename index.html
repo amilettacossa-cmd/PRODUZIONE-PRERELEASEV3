@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Produzione Tecnici - LUCE</title>
+
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a1020">
+
+<style>
+:root{--bg:#0a1020;--panel:#111a2e;--panel2:#0d1526;--text:#eaf1fb;--muted:#9fb0c9;--border:#22345a;--brand:#6fb4ff;--green:#22c55e;--focus:rgba(111,180,255,.25);}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;overflow-x:hidden}
+*{box-sizing:border-box}
+.container{max-width:1100px;margin:26px auto;padding:0 12px; display:none;} /* nascosto fino al login */
+header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+header img{width:42px;height:42px;border-radius:10px;object-fit:contain;background:#0d1526;border:1px solid var(--border);padding:4px}
+h1{margin:0;font-size:clamp(20px,3.6vw,30px)}
+.panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:16px;padding:12px}
+.row{display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end}
+.row > div{min-width:0;}
+@media (max-width:800px){.row{grid-template-columns:1fr}}
+label{display:block;font-weight:700;margin:2px 0 6px;font-size:14px}
+input,select{display:block;width:100%;max-width:100%;padding:8px 10px;border-radius:12px;border:1px solid var(--border);background:#0c1731;color:#eaf1fb;font-size:15px;min-height:38px}
+
+/* Date input wrap: iOS proof */
+.input-wrap{display:block;width:100%;max-width:100%;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#0c1731}
+.input-wrap input[type="date"]{-webkit-appearance:none;appearance:none;border:0;background:transparent;padding:8px 10px;min-height:38px;line-height:1.1;width:100%;max-width:100%;color:#eaf1fb}
+
+button{background:var(--brand);color:#071122;border:none;border-radius:12px;padding:10px 14px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(111,180,255,.25);min-height:40px}
+.btn-success{background:var(--green);color:#05240f}
+.btn-outline{background:transparent;color:#cfe0ff;border:1px solid var(--border)}
+
+.tablewrap{overflow:auto;border-radius:12px;border:1px solid var(--border);margin-top:12px}
+table{width:100%;border-collapse:collapse;min-width:600px}
+th,td{border-bottom:1px solid var(--border);padding:10px 12px;text-align:left;background:#0d1733;white-space:nowrap}
+thead th{position:sticky;top:0;background:#0b1630;z-index:1;color:#cfe0ff}
+.right{text-align:right}
+.small{font-size:13px;color:#9fb0c9}
+
+/* Overlay login full-screen */
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:1000}
+.card{width:min(480px,95vw);background:#0f1a36;border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:0 16px 60px rgba(0,0,0,.35)}
+.hidden{display:none !important}
+</style>
+
+<style>.total-row{font-weight:700;background:rgba(111,180,255,.08)}</style>
+</head>
+<body>
+
+<!-- Login Overlay (prima cosa che compare) -->
+<div id="login" class="overlay">
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <img src="assets/logo-luce.png" alt="LUCE" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:#0d1526;padding:4px">
+      <h3 style="margin:0">Accesso LUCE</h3>
+    </div>
+    <div style="display:grid;gap:8px;margin-top:10px">
+      <div>
+        <label>Username</label>
+        <input id="u" placeholder="Luceadmin">
+      </div>
+      <div>
+        <label>Password</label>
+        <input id="p" type="password" placeholder="••••••••">
+      </div>
+      <button id="go" class="btn-success" style="margin-top:6px">Entra</button>
+    </div>
+    <div id="err" class="small" style="color:#f99;margin-top:8px"></div>
+  </div>
+</div>
+
+<div class="container">
+  <header>
+    <img src="assets/logo-luce.png" alt="LUCE">
+    <h1>Produzione Tecnici</h1>
+  </header>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <label>Data inizio</label>
+        <div class="input-wrap"><input id="dateStart" type="date"></div>
+      </div>
+      <div>
+        <label>Data fine</label>
+        <div class="input-wrap"><input id="dateEnd" type="date"></div>
+      </div>
+      <div>
+        <label>System</label>
+        <select id="sysFilter">
+          <option value="">Tutti</option>
+          <option value="SERTORI">SERTORI</option>
+          <option value="ELECNOR">ELECNOR</option>
+          <option value="SDEN">SDEN</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button id="btnExtract" class="btn-success">Estrai produzione</button>
+      <button id="btnExport" class="btn-outline">Esporta XLSX</button>
+    </div>
+    <div id="info" class="small" style="margin-top:6px"></div>
+  </div>
+
+  <div class="panel" style="margin-top:12px">
+    <div class="tablewrap">
+      <table id="tbl"><thead><tr>
+        <th>Tecnico</th><th>OF</th><th>TIM</th><th>Guasti</th><th>Cessazioni</th><th class="right">Totale €</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js')); }
+
+const WEBHOOK = "https://script.google.com/macros/s/AKfycbyKP3amA7CCKk4TypuVVmykY5vJOtmXz_HavrgfK-WJ4qkORqOEd2BsEAXBFxnz2vRt/exec";
+const TOKEN   = "luce2025secure";
+const EXPECT_USER = "Luceadmin";
+const EXPECT_PASS = "Luce!2025";
+
+// Mostra login subito, e sblocca la pagina solo dopo auth corretta
+(function() {
+  const overlay = document.getElementById('login');
+  const go = document.getElementById('go');
+  const container = document.querySelector('.container');
+  container.style.display = 'none';
+  overlay.classList.remove('hidden');
+
+  go.addEventListener('click', () => {
+    const u = (document.getElementById('u').value||'').trim();
+    const p = (document.getElementById('p').value||'').trim();
+    if (u.toLowerCase() === EXPECT_USER.toLowerCase() && p === EXPECT_PASS) {
+      overlay.classList.add('hidden');
+      container.style.display = 'block';
+      window.scrollTo(0,0);
+    } else {
+      document.getElementById('err').textContent = 'Credenziali non valide.';
+    }
+  });
+})();
+
+function pad(n){return String(n).padStart(2,'0')}
+function asISO(d){ if (!d) return ''; if (typeof d === 'string') return d.slice(0,10); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function parseNum(x, d=0){ const n = Number(x); return Number.isFinite(n) ? n : d; }
+
+// Prezzi
+const OF_SERTORI = {'MIGRAZIONE':25,'SBRACCIO':70,'MONO INTERNA':70,'MONO ESTERNA':70,'MONO ESTERNA POZZETTI/PALIFICA':110};
+const OF_ELECNOR = {'MIGRAZIONE':25,'SBRACCIO':64,'MONO INTERNA':64,'MONO ESTERNA':64,'MONO ESTERNA POZZETTI/PALIFICA':110};
+const SDEN_DISCOUNT = 0.13;
+const TIM_TBL = {'MIGRAZIONE':0,'MONO INTERNA':112,'SBRACCIO':112,'MONO ESTERNA':144,'MONO ESTERNA POZZETTI/PALIFICA':188};
+
+function oloExtra(oloRaw, tipologiaImpianto) {
+  const s = String(oloRaw ?? '').toUpperCase().trim();
+  const numericOnly = /^[0-9]+$/.test(s);
+  if (!s) return 0;
+  if (s.startsWith('OPI')) { return (String(tipologiaImpianto).toUpperCase() === 'MIGRAZIONE') ? 18 : 54; }
+  const p18 = ['ARU','COC2','COC3','EDE','FW','LD','VH','SOR','WN'];
+  if (p18.some(p => s.startsWith(p))) return 18;
+  const p6 = ['COC_', 'ENE_', 'DM_', 'OPT-', 'UND_'];
+  if (p6.some(p => s.startsWith(p))) return 6;
+  if (s.startsWith('ILA') || numericOnly) return 25;
+  return 0;
+}
+
+function calcRowAmount(row) {
+  const tipo = String(row['TIPO INTERVENTO']||'').toUpperCase();
+  const sys  = String(row['SYSTEM']||'').toUpperCase();
+  const oftim= String(row['OF O TIM']||'').toUpperCase();
+  const tipImp = String(row['TIPOLOGIA IMPIANTO']||'').toUpperCase();
+  const multifibra = String(row['MULTIFIBRA POSATO']||'').toUpperCase();
+  const olo = row['CODICE OLO'] || '';
+  const cess = parseNum(row['NUMERO CESSAZIONI'], 0);
+  if (tipo === 'CESSAZIONE') { return 10 * cess; }
+  if (tipo === 'GUASTO') { return 22; }
+  if (tipo === 'ATTIVAZIONE') {
+    if (oftim === 'OF') {
+      const table = (sys === 'ELECNOR') ? OF_ELECNOR : OF_SERTORI;
+      let tot = (table[tipImp] || 0) + oloExtra(olo, tipImp);
+      if (sys === 'SDEN') tot = tot * (1 - SDEN_DISCOUNT);
+      return tot;
+    } else if (oftim === 'TIM') {
+      if (String(multifibra) === 'SI') return 215;
+      return TIM_TBL[tipImp] || 0;
+    }
+  }
+  return 0;
+}
+
+async function fetchRows() {
+  const resp = await fetch(WEBHOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token: TOKEN, action: 'report' })
+  });
+  const text = await resp.text();
+  let js = null;
+  try { js = JSON.parse(text); } catch(e) { }
+  if (!resp.ok || !js || !js.ok) throw new Error((js && js.error) || 'Impossibile leggere dati');
+  return js.rows || [];
+}
+
+function inRange(d, start, end) {
+  if (!start && !end) return true;
+  const x = asISO(d);
+  if (start && x < start) return false;
+  if (end && x > end) return false;
+  return true;
+}
+
+function buildReport(rows, start, end, sysFilter) {
+  const out = new Map();
+  for (const r of rows) {
+    const di = asISO(r['DATA INTERVENTO']);
+    if (!inRange(di, start, end)) continue;
+    const sys = String(r['SYSTEM']||'').toUpperCase();
+    if (sysFilter && sys !== sysFilter) continue;
+
+    const tech = String(r['NOME TECNICO']||'').trim() || '(Senza nome)';
+    const tipo = String(r['TIPO INTERVENTO']||'').toUpperCase();
+    const oftim = String(r['OF O TIM']||'').toUpperCase();
+
+    let amt = calcRowAmount(r);
+    const teamSize = Math.max(1, parseInt(r['SINGOLISTA O COPPIA']||'1', 10) || 1);
+    amt = amt / teamSize;
+
+    if (!out.has(tech)) out.set(tech, { of:0, tim:0, guasti:0, cess:0, tot:0 });
+    const o = out.get(tech);
+    if (tipo === 'GUASTO') o.guasti += 1;
+    else if (tipo === 'CESSAZIONE') o.cess += parseInt(r['NUMERO CESSAZIONI']||'0',10) || 0;
+    else if (oftim === 'OF') o.of += 1;
+    else if (oftim === 'TIM') o.tim += 1;
+    o.tot += amt;
+  }
+  return Array.from(out.entries()).map(([tech, v]) => ({ Tecnico: tech, OF: v.of, TIM: v.tim, Guasti: v.guasti, Cessazioni: v.cess, Totale: Math.round(v.tot*100)/100 }));
+}
+
+function renderTable(data) {
+  const tbody = document.querySelector('#tbl tbody');
+  tbody.innerHTML = '';
+  const fmt = n => (typeof n === 'number' ? n.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2}) : n);
+  for (const row of data) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${row.Tecnico}</td>
+                    <td>${row.OF}</td>
+                    <td>${row.TIM}</td>
+                    <td>${row.Guasti}</td>
+                    <td>${row.Cessazioni}</td>
+                    <td class="right">€ ${fmt(row.Totale)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+async function doExtract() {
+  try {
+    const start = document.getElementById('dateStart').value || '';
+    const end   = document.getElementById('dateEnd').value || '';
+    const sysF  = (document.getElementById('sysFilter').value || '').toUpperCase();
+    document.getElementById('info').textContent = 'Carico dati...';
+    const rows = await fetchRows();
+    const report = buildReport(rows, start, end, sysF);
+    renderTable(report);
+    document.getElementById('info').textContent = `Tecnici: ${report.length}`;
+    window.__lastReport = report;
+  } catch(err) {
+    alert('Errore: ' + err.message);
+  }
+}
+document.getElementById('btnExtract').addEventListener('click', doExtract);
+
+// Export XLSX
+document.getElementById('btnExport').addEventListener('click', function() {
+  const data = window.__lastReport || [];
+  if (!data.length) { alert('Niente da esportare. Premi "Estrai produzione" prima.'); return; }
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Produzione');
+  XLSX.writeFile(wb, 'produzione_luce.xlsx');
+});
+</script>
+
+<script>
+// Totals wrapper: non tocca login né logica; aggiunge TOTALE *dopo* renderTable
+(function(){
+  function fmt(n){
+    try { return (Number(n)||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    catch(_){ return String(n); }
+  }
+  function addTotals(){
+    var tbody = document.querySelector('#tbl tbody') || document.querySelector('#results tbody');
+    if (!tbody) return;
+    // remove previous totals row
+    var old = tbody.querySelector('tr.total-row');
+    if (old) old.remove();
+    var ofSum=0,timSum=0,guaSum=0,cesSum=0,totSum=0;
+    Array.prototype.forEach.call(tbody.rows, function(tr){
+      if (tr.classList.contains('total-row')) return;
+      var td = tr.children; if (!td || td.length < 6) return;
+      ofSum += parseInt((td[1].textContent||'').trim(),10) || 0;
+      timSum+= parseInt((td[2].textContent||'').trim(),10) || 0;
+      guaSum+= parseInt((td[3].textContent||'').trim(),10) || 0;
+      cesSum+= parseInt((td[4].textContent||'').trim(),10) || 0;
+      var raw = (td[5].textContent||'').replace(/[€\s\.]/g,'').replace(',', '.');
+      totSum += parseFloat(raw) || 0;
+    });
+    var tr = document.createElement('tr');
+    tr.className = 'total-row';
+    tr.innerHTML = '<td style="text-transform:uppercase">TOTALE</td>'
+                 + '<td>'+ofSum+'</td>'
+                 + '<td>'+timSum+'</td>'
+                 + '<td>'+guaSum+'</td>'
+                 + '<td>'+cesSum+'</td>'
+                 + '<td class="right">€ '+fmt(totSum)+'</td>';
+    tbody.appendChild(tr);
+  }
+  function wrap(){
+    if (typeof window.renderTable === 'function' && !window.renderTable.__wrapped){
+      var orig = window.renderTable;
+      window.renderTable = function(data){
+        var out = orig.apply(this, arguments);
+        try { addTotals(); } catch(e){}
+        return out;
+      };
+      window.renderTable.__wrapped = true;
+    } else {
+      setTimeout(wrap, 200);
+    }
+  }
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', wrap);
+  } else {
+    wrap();
+  }
+})();
+</script>
+
+</body>
+</html>
