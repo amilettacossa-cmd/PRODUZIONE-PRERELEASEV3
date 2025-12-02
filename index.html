@@ -163,7 +163,7 @@ function oloExtra(oloRaw, tipologiaImpianto) {
   if (s.startsWith('OPI')) { return (String(tipologiaImpianto).toUpperCase() === 'MIGRAZIONE') ? 18 : 54; }
   const p18 = ['ARU','COC2','COC3','EDE','FW','LD','VH','SOR','WN','EPD','OSM','FO'];
   if (p18.some(p => s.startsWith(p))) return 18;
-  const p6 = ['COC_', 'ENE_', 'DM_', 'OPT-', 'UND_', 'ENK', 'DA', 'W3-', 'BBB_', 'MCL_'];
+  const p6 = ['COC_', 'ENE_', 'DM_', 'OPT-', 'UND_', 'ENK', 'DA', 'W3-', 'BBB_', 'MCL_', 'ALB_'];
   if (p6.some(p => s.startsWith(p))) return 6;
   if (s.startsWith('ILA') || numericOnly) return 25;
   return 0;
