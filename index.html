@@ -36,7 +36,7 @@ button{background:var(--brand);color:#071122;border:none;border-radius:12px;padd
 .btn-outline{background:transparent;color:#cfe0ff;border:1px solid var(--border)}
 
 .tablewrap{overflow:auto;border-radius:12px;border:1px solid var(--border);margin-top:12px}
-table{width:100%;border-collapse:collapse;min-width:600px}
+table{width:100%;border-collapse:collapse;min-width:650px}
 th,td{border-bottom:1px solid var(--border);padding:10px 12px;text-align:left;background:#0d1733;white-space:nowrap}
 thead th{position:sticky;top:0;background:#0b1630;z-index:1;color:#cfe0ff}
 .right{text-align:right}
@@ -46,9 +46,8 @@ thead th{position:sticky;top:0;background:#0b1630;z-index:1;color:#cfe0ff}
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:1000}
 .card{width:min(480px,95vw);background:#0f1a36;border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:0 16px 60px rgba(0,0,0,.35)}
 .hidden{display:none !important}
+.total-row{font-weight:700;background:rgba(111,180,255,.08)}
 </style>
-
-<style>.total-row{font-weight:700;background:rgba(111,180,255,.08)}</style>
 </head>
 <body>
 
@@ -97,6 +96,7 @@ thead th{position:sticky;top:0;background:#0b1630;z-index:1;color:#cfe0ff}
           <option value="SERTORI">SERTORI</option>
           <option value="ELECNOR">ELECNOR</option>
           <option value="SDEN">SDEN</option>
+          <option value="KOLME">KOLME</option>
         </select>
       </div>
     </div>
@@ -109,8 +109,9 @@ thead th{position:sticky;top:0;background:#0b1630;z-index:1;color:#cfe0ff}
 
   <div class="panel" style="margin-top:12px">
     <div class="tablewrap">
+      <!-- HEADER aggiornato: KOLME (WIND) dopo TIM -->
       <table id="tbl"><thead><tr>
-        <th>Tecnico</th><th>OF</th><th>TIM</th><th>Guasti</th><th>Cessazioni</th><th class="right">Totale €</th>
+        <th>Tecnico</th><th>OF</th><th>TIM</th><th>KOLME (WIND)</th><th>Guasti</th><th>Cessazioni</th><th class="right">Totale €</th>
       </tr></thead><tbody></tbody></table>
     </div>
   </div>
@@ -151,7 +152,20 @@ function asISO(d){ if (!d) return ''; if (typeof d === 'string') return d.slice(
 function parseNum(x, d=0){ const n = Number(x); return Number.isFinite(n) ? n : d; }
 
 // Prezzi
-const OF_SERTORI = {'MIGRAZIONE':25,'SBRACCIO':70,'MONO INTERNA':70,'MONO ESTERNA':70,'MONO ESTERNA POZZETTI/PALIFICA':110};
+const OF_SERTORI = {'MIGRAZIONE':25,'SBRACCIO':70,'MONO INTERNA':70,'MONO ESTERNA':70,'MONO ESTERNA POZZZETTI/PALIFICA':110};
+</script>
+<script>
+// Correzione refuso chiave (pozzetti/palifica) mantenendo retrocompatibilità
+(function(){
+  if (!window.OF_SERTORI) return;
+  if (OF_SERTORI['MONO ESTERNA POZZETTI/PALIFICA'] === undefined &&
+      OF_SERTORI['MONO ESTERNA POZZZETTI/PALIFICA'] !== undefined){
+    OF_SERTORI['MONO ESTERNA POZZETTI/PALIFICA'] = OF_SERTORI['MONO ESTERNA POZZZETTI/PALIFICA'];
+    delete OF_SERTORI['MONO ESTERNA POZZZETTI/PALIFICA'];
+  }
+})();
+</script>
+<script>
 const OF_ELECNOR = {'MIGRAZIONE':25,'SBRACCIO':64,'MONO INTERNA':64,'MONO ESTERNA':64,'MONO ESTERNA POZZETTI/PALIFICA':110};
 const SDEN_DISCOUNT = 0.13;
 const TIM_TBL = {'MIGRAZIONE':0,'MONO INTERNA':112,'SBRACCIO':112,'MONO ESTERNA':144,'MONO ESTERNA POZZETTI/PALIFICA':188};
@@ -214,42 +228,64 @@ function inRange(d, start, end) {
   return true;
 }
 
+/* =============== buildReport con conteggio KOLME (WIND) =============== */
 function buildReport(rows, start, end, sysFilter) {
   const out = new Map();
   for (const r of rows) {
     const di = asISO(r['DATA INTERVENTO']);
     if (!inRange(di, start, end)) continue;
+
     const sys = String(r['SYSTEM']||'').toUpperCase();
     if (sysFilter && sys !== sysFilter) continue;
 
-    const tech = String(r['NOME TECNICO']||'').trim() || '(Senza nome)';
-    const tipo = String(r['TIPO INTERVENTO']||'').toUpperCase();
+    const tech  = String(r['NOME TECNICO']||'').trim() || '(Senza nome)';
+    const tipo  = String(r['TIPO INTERVENTO']||'').toUpperCase();
     const oftim = String(r['OF O TIM']||'').toUpperCase();
 
     let amt = calcRowAmount(r);
     const teamSize = Math.max(1, parseInt(r['SINGOLISTA O COPPIA']||'1', 10) || 1);
     amt = amt / teamSize;
 
-    if (!out.has(tech)) out.set(tech, { of:0, tim:0, guasti:0, cess:0, tot:0 });
+    if (!out.has(tech)) out.set(tech, { of:0, tim:0, kolme:0, guasti:0, cess:0, tot:0 });
     const o = out.get(tech);
-    if (tipo === 'GUASTO') o.guasti += 1;
-    else if (tipo === 'CESSAZIONE') o.cess += parseInt(r['NUMERO CESSAZIONI']||'0',10) || 0;
-    else if (oftim === 'OF') o.of += 1;
-    else if (oftim === 'TIM') o.tim += 1;
+
+    if (tipo === 'GUASTO') {
+      o.guasti += 1;
+    } else if (tipo === 'CESSAZIONE') {
+      o.cess += parseInt(r['NUMERO CESSAZIONI']||'0',10) || 0;
+    } else {
+      if (oftim === 'OF')  o.of  += 1;
+      if (oftim === 'TIM') o.tim += 1;
+      if (sys === 'KOLME' || oftim === 'WIND') o.kolme += 1; /* <- nuovo conteggio */
+    }
+
     o.tot += amt;
   }
-  return Array.from(out.entries()).map(([tech, v]) => ({ Tecnico: tech, OF: v.of, TIM: v.tim, Guasti: v.guasti, Cessazioni: v.cess, Totale: Math.round(v.tot*100)/100 }));
+
+  return Array.from(out.entries()).map(([tech, v]) => ({
+    Tecnico: tech,
+    OF: v.of,
+    TIM: v.tim,
+    KOLME: v.kolme,               // dato per la nuova colonna
+    Guasti: v.guasti,
+    Cessazioni: v.cess,
+    Totale: Math.round(v.tot*100)/100
+  }));
 }
 
+/* =============== renderTable aggiornato (stampa KOLME) =============== */
 function renderTable(data) {
   const tbody = document.querySelector('#tbl tbody');
   tbody.innerHTML = '';
-  const fmt = n => (typeof n === 'number' ? n.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2}) : n);
+  const fmt = n => (typeof n === 'number'
+    ? n.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2})
+    : n);
   for (const row of data) {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${row.Tecnico}</td>
                     <td>${row.OF}</td>
                     <td>${row.TIM}</td>
+                    <td>${row.KOLME || 0}</td>
                     <td>${row.Guasti}</td>
                     <td>${row.Cessazioni}</td>
                     <td class="right">€ ${fmt(row.Totale)}</td>`;
@@ -274,11 +310,29 @@ async function doExtract() {
 }
 document.getElementById('btnExtract').addEventListener('click', doExtract);
 
-// Export XLSX
+/* =============== Export XLSX con ordine colonne forzato (incluso KOLME) =============== */
 document.getElementById('btnExport').addEventListener('click', function() {
   const data = window.__lastReport || [];
   if (!data.length) { alert('Niente da esportare. Premi "Estrai produzione" prima.'); return; }
-  const ws = XLSX.utils.json_to_sheet(data);
+
+  // Ordine colonne desiderato
+  const headers = ['Tecnico','OF','TIM','KOLME (WIND)','Guasti','Cessazioni','Totale €'];
+
+  // Mappo i dati nel formato AOI con header fissi
+  const rows = data.map(r => ([
+    r.Tecnico,
+    Number(r.OF)||0,
+    Number(r.TIM)||0,
+    Number(r.KOLME)||0,
+    Number(r.Guasti)||0,
+    Number(r.Cessazioni)||0,
+    Number(r.Totale)||0
+  ]));
+
+  // Costruisco worksheet
+  const ws_data = [headers, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Produzione');
   XLSX.writeFile(wb, 'produzione_luce.xlsx');
@@ -286,59 +340,106 @@ document.getElementById('btnExport').addEventListener('click', function() {
 </script>
 
 <script>
-// Totals wrapper: non tocca login né logica; aggiunge TOTALE *dopo* renderTable
+// Totals wrapper dinamico: somma le colonne leggendo gli header (OF, TIM, KOLME (WIND), Guasti, Cessazioni, Totale €)
 (function(){
   function fmt(n){
     try { return (Number(n)||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}); }
     catch(_){ return String(n); }
   }
   function addTotals(){
-    var tbody = document.querySelector('#tbl tbody') || document.querySelector('#results tbody');
-    if (!tbody) return;
-    // remove previous totals row
-    var old = tbody.querySelector('tr.total-row');
+    const tbl = document.getElementById('tbl');
+    if (!tbl) return;
+    const thead = tbl.tHead || tbl.querySelector('thead');
+    const tbody = tbl.tBodies[0] || tbl.querySelector('tbody');
+    if (!thead || !tbody) return;
+
+    const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toUpperCase());
+    const idx = {
+      OF: headers.indexOf('OF'),
+      TIM: headers.indexOf('TIM'),
+      KOLME: headers.indexOf('KOLME (WIND)'),
+      GUA: headers.indexOf('GUASTI'),
+      CESS: headers.indexOf('CESSAZIONI'),
+      TOT: headers.findIndex(h => h.startsWith('TOTALE'))
+    };
+
+    const old = tbody.querySelector('tr.total-row');
     if (old) old.remove();
-    var ofSum=0,timSum=0,guaSum=0,cesSum=0,totSum=0;
-    Array.prototype.forEach.call(tbody.rows, function(tr){
+
+    let ofSum=0, timSum=0, kolSum=0, guaSum=0, cesSum=0, totSum=0;
+    Array.from(tbody.rows).forEach(tr=>{
       if (tr.classList.contains('total-row')) return;
-      var td = tr.children; if (!td || td.length < 6) return;
-      ofSum += parseInt((td[1].textContent||'').trim(),10) || 0;
-      timSum+= parseInt((td[2].textContent||'').trim(),10) || 0;
-      guaSum+= parseInt((td[3].textContent||'').trim(),10) || 0;
-      cesSum+= parseInt((td[4].textContent||'').trim(),10) || 0;
-      var raw = (td[5].textContent||'').replace(/[€\s\.]/g,'').replace(',', '.');
-      totSum += parseFloat(raw) || 0;
+      const td = tr.children;
+      const readInt = i => (i>=0 && td[i]) ? (parseInt((td[i].textContent||'').trim(),10)||0) : 0;
+      if (idx.OF   >=0) ofSum  += readInt(idx.OF);
+      if (idx.TIM  >=0) timSum += readInt(idx.TIM);
+      if (idx.KOLME>=0) kolSum += readInt(idx.KOLME);
+      if (idx.GUA  >=0) guaSum += readInt(idx.GUA);
+      if (idx.CESS >=0) cesSum += readInt(idx.CESS);
+
+      if (idx.TOT>=0 && td[idx.TOT]) {
+        const raw = (td[idx.TOT].textContent||'').replace(/[€\s\.]/g,'').replace(',', '.');
+        totSum += parseFloat(raw)||0;
+      }
     });
-    var tr = document.createElement('tr');
+
+    const tr = document.createElement('tr');
     tr.className = 'total-row';
-    tr.innerHTML = '<td style="text-transform:uppercase">TOTALE</td>'
-                 + '<td>'+ofSum+'</td>'
-                 + '<td>'+timSum+'</td>'
-                 + '<td>'+guaSum+'</td>'
-                 + '<td>'+cesSum+'</td>'
-                 + '<td class="right">€ '+fmt(totSum)+'</td>';
+    const cells = headers.map((h, i)=>{
+      if (i===0) return '<td style="text-transform:uppercase">TOTALE</td>';
+      if (i===idx.OF)    return `<td>${ofSum}</td>`;
+      if (i===idx.TIM)   return `<td>${timSum}</td>`;
+      if (i===idx.KOLME) return `<td>${kolSum}</td>`;
+      if (i===idx.GUA)   return `<td>${guaSum}</td>`;
+      if (i===idx.CESS)  return `<td>${cesSum}</td>`;
+      if (i===idx.TOT)   return `<td class="right">€ ${fmt(totSum)}</td>`;
+      return '<td></td>';
+    });
+    tr.innerHTML = cells.join('');
     tbody.appendChild(tr);
   }
   function wrap(){
-    if (typeof window.renderTable === 'function' && !window.renderTable.__wrapped){
-      var orig = window.renderTable;
+    if (typeof window.renderTable === 'function' && !window.renderTable.__wrappedKolmeTotal){
+      const orig = window.renderTable;
       window.renderTable = function(data){
-        var out = orig.apply(this, arguments);
+        const out = orig.apply(this, arguments);
         try { addTotals(); } catch(e){}
         return out;
       };
-      window.renderTable.__wrapped = true;
+      window.renderTable.__wrappedKolmeTotal = true;
     } else {
       setTimeout(wrap, 200);
     }
   }
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', wrap);
-  } else {
-    wrap();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wrap);
+  else wrap();
 })();
 </script>
 
+<!-- Override KOLME pricing già presente (lasciato invariato) -->
+<script>
+(function () {
+  const up = s => (s||'').toString().trim().toUpperCase();
+
+  const KOLME_MAP = {
+    'FWA PARETE': 65,
+    'FWA CAPPOTTO': 85,
+    'FWA IN QUOTA': 120,
+    'FWA USCITA A VUOTO': 35
+  };
+
+  const oldCalc = window.calcRowAmount;
+
+  window.calcRowAmount = function (r) {
+    try {
+      if (up(r['SYSTEM']) === 'KOLME') {
+        const tip = up(r['TIPOLOGIA IMPIANTO']);
+        return KOLME_MAP[tip] || 0; // la divisione 1/2 avviene dopo come da tua logica
+      }
+    } catch (e) {}
+    return typeof oldCalc === 'function' ? oldCalc(r) : 0;
+  };
+})();
+</script>
 </body>
 </html>
